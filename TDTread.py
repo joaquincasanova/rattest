@@ -34,7 +34,7 @@ def ecog_rat_loc(n):
     return np.hstack((x,y,z))
 
 directory='./oceanit/05162017/'
-names=['MEG_ECOG']#,'ECOG','ECOG_MEG_DistX2','MEG_NoSpeaker','MEG_Speaker']
+names=['MEG_ECOG','ECOG','ECOG_MEG_DistX2','MEG_NoSpeaker','MEG_Speaker']
 
 for name in names:
     data=sio.loadmat(directory+name+'.mat')
@@ -175,13 +175,80 @@ for name in names:
 
     ECoG_levels = []
     MEG_levels = []
+    
+    ECoG_fft_levels = []
+    MEG_fft_levels = []
+        
+    ECoG_PSD_levels = []
+    MEG_PSD_levels = []
 
+    i=0
     for l in [-120,0,5,10,15]:
-        picks, picksJ=np.where(level==l)
-        
-        ECoG_levels.append(ECoG_filt_epoched[picks])
-        MEG_levels.append(MEG_filt_epoched[picks])
 
+        ECoG_trim = []
+        MEG_trim = []
+        ns_o = 1e6
+        ms_o = 1e6
+
+        picks, picksJ=np.where(level==l)
+
+        for p in picks:
+            ns = ECoG_filt_epoched[p].shape[1]
+            if ns<ns_o:
+                ns_o=ns
+
+        for p in picks:
+            ECoG_trim.append(ECoG_filt_epoched[p][:,0:ns_o])
+
+        for p in picks:
+            ms = MEG_filt_epoched[p].shape[1]
+            if ms<ms_o:
+                ms_o=ms
+
+        for p in picks:
+            MEG_trim.append(MEG_filt_epoched[p][:,0:ms_o])
+
+        ECoG_levels.append(np.mean(np.array(ECoG_trim),0))
+        MEG_levels.append(np.mean(np.array(MEG_trim),0))
+
+        time_ECoG = np.arange(0,ns_o)/fs_ECoG
+
+        time_MEG = np.arange(0,ms_o)/fs_MEG
+
+        f_ECoG=(sfft.fftshift(sfft.fftfreq(ns_o,1./fs_ECoG)))
         
+        f_MEG=(sfft.fftshift(sfft.fftfreq(ms_o,1./fs_MEG)))
+        
+        ECoG_fft_levels.append(sfft.fftshift(sfft.fft(ECoG_levels[i])))
+        ECoG_PSD_levels.append(10.*np.log10(np.abs(ECoG_fft_levels[i]*np.conj(ECoG_fft_levels[i]))))
+        
+        MEG_fft_levels.append(sfft.fftshift(sfft.fft(MEG_levels[i])))
+        MEG_PSD_levels.append(10.*np.log10(np.abs(MEG_fft_levels[i]*np.conj(MEG_fft_levels[i]))))
+        
+        plt.subplot(2,2,1)
+        plt.plot(time_ECoG.T,ECoG_levels[i].T)
+        plt.title('ECoG Level '+str(level[i])+' dB')
+
+        plt.subplot(2,2,3)
+        plt.plot(time_MEG.T,MEG_levels[i].T)
+        plt.title('MEG Level '+str(level[i])+' dB')
+
+        plt.xlabel('Time (s)')
+
+        plt.subplot(2,2,2)
+        plt.plot(f_ECoG.T,ECoG_PSD_levels[i].T)
+        plt.title('ECoG Level '+str(level[i])+' dB')
+        plt.xlim(0,300)
+
+        plt.subplot(2,2,4)
+        plt.plot(f_MEG.T,MEG_PSD_levels[i].T)
+        plt.title('MEG Level '+str(level[i])+' dB')
+        plt.xlim(0,300)
+
+        plt.xlabel('Frequency (Hz)')
+        plt.savefig('level'+str(i)+name+'.png')
+        plt.close()
+
+        i+=1
 xyz = rat_loc(4)
 
