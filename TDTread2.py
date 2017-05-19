@@ -16,7 +16,7 @@ fc = 300.#cutoff
 Q = 30.#notch Q
 q=48#decimation
 K = 466./257.*1e6
-plotit=False
+plotit=True
 lowpass=False#lowpass is redundant with decimate's built in butterworth low-pass
 
 def plot_fft(MEG,ECoG,fs_MEG,fs_ECoG,label,name):
@@ -100,7 +100,7 @@ def read_sequence(fname_seq,fname_par,flag,levels_in):
     return treatments, n_treat
                     
 directory='./oceanit/05182017/'
-names=['ECOG_MEG_P1','ECOG_MEG_Tones','ECOG_MEG_Iso_Tones']#'ECOG_Live_1_Bad_ground','ECOG_Lives_2_Pink',]
+names=['ECOG_MEG_Tones','ECOG_MEG_P1','ECOG_MEG_Iso_Tones']#'ECOG_Live_1_Bad_ground','ECOG_Lives_2_Pink',]
 PinkFile='Oceanit1'
 ToneFile='Oceanit2'
 
@@ -252,18 +252,23 @@ for name in names:
     MEG_average = []
     ECoG_average = []
     if flag=='Tones':
+        ll=0
         for l in range(0,n_treat):
             picks = np.where(treatments[2,:]==l)
             MEG_average.append(np.mean(MEG_3[picks,:,:],axis=0))
             ECoG_average.append(np.mean(ECoG_3[picks,:,:],axis=0))
-            plot_fft(MEG_average[l],ECoG_average[l],fs_MEG,fs_ECoG,l,name)
+            if plotit:
+                plot_fft(MEG_average[ll],ECoG_average[ll],fs_MEG,fs_ECoG,ll,name)
+            ll+=1
     elif flag=='P1':
+        ll=0
         for l in [-120,-20,-15,-10,-5,0,5]:
             picks = np.where(treatments[0,:]==l)
             MEG_average.append(np.mean(MEG_3[picks,:,:],axis=0))
             ECoG_average.append(np.mean(ECoG_3[picks,:,:],axis=0))
-            plot_fft(MEG_average[l],ECoG_average[l],fs_MEG,fs_ECoG,l,name)
-
+            if plotit:
+                plot_fft(MEG_average[ll],ECoG_average[ll],fs_MEG,fs_ECoG,ll,name)
+            ll+=1
     del data, MEG, ECoG
 xyz = rat_loc(4)
 
