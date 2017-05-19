@@ -262,7 +262,7 @@ for name in names:
             ll+=1
     elif flag=='P1':
         ll=0
-        for l in [-120,-20,-15,-10,-5,0,5]:
+        for l in [-120.,-20.,-15.,-10.,-5.,0.,5.]:
             picks = np.where(treatments[0,:]==l)
             MEG_average.append(np.mean(MEG_3[picks,:,:],axis=0))
             ECoG_average.append(np.mean(ECoG_3[picks,:,:],axis=0))
