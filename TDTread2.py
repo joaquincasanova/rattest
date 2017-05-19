@@ -100,7 +100,7 @@ def read_sequence(fname_seq,fname_par,flag,levels_in):
     return treatments, n_treat
                     
 directory='./oceanit/05182017/'
-names=['ECOG_MEG_Tones','ECOG_MEG_P1','ECOG_MEG_Iso_Tones']#'ECOG_Live_1_Bad_ground','ECOG_Lives_2_Pink',]
+names=['ECOG_MEG_P1','ECOG_MEG_Tones','ECOG_MEG_Iso_Tones']#'ECOG_Live_1_Bad_ground','ECOG_Lives_2_Pink',]
 PinkFile='Oceanit1'
 ToneFile='Oceanit2'
 
@@ -253,7 +253,7 @@ for name in names:
     ECoG_average = []
     if flag=='Tones':
         ll=0
-        for l in range(0,n_treat):
+        for l in range(1,n_treat+1):
             picks = np.where(treatments[2,:]==l)
             MEG_average.append(np.mean(MEG_3[picks,:,:],axis=0))
             ECoG_average.append(np.mean(ECoG_3[picks,:,:],axis=0))
