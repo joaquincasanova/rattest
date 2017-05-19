@@ -178,8 +178,8 @@ for name in names:
         #free up memory
         del MEG_lp,ECoG_lp,MEG,ECoG
         
-        fs_ECoG = fs_ECog/q
-        fs_ECoG = fs_ECog/q
+        fs_ECoG = fs_ECoG/q
+        fs_MEG = fs_MEG/q
 
         #Notch filter
         b_ECoG, a_ECoG = sig.iirnotch(f0/(fs_ECoG/2),Q)
