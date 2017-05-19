@@ -11,15 +11,54 @@ from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import matplotlib.pyplot as plt
 
 pi = np.pi
-f0 = 60.
-fc = 300.
-gs = 60.
-gp = 1.
-Q = 30.
-q=48
+f0 = 60.#mains
+fc = 300.#cutoff
+Q = 30.#notch Q
+q=48#decimation
 K = 466./257.*1e6
 plotit=False
+lowpass=False#lowpass is redundant with decimate's built in butterworth low-pass
 
+#def plot_fft(MEG,ECoG,fs_MEG,fs_ECoG):
+#    time_ECoG = np.arange(0,ns_o)/fs_ECoG
+#
+#    time_MEG = np.arange(0,ms_o)/fs_MEG
+#    
+#    f_ECoG=(sfft.fftshift(sfft.fftfreq(ns_o,1./fs_ECoG)))
+#        
+#    f_MEG=(sfft.fftshift(sfft.fftfreq(ms_o,1./fs_MEG)))
+#        
+#    ECoG_fft_levels.append(sfft.fftshift(sfft.fft(ECoG_levels[i])))
+#    ECoG_PSD_levels.append(10.*np.log10(np.abs(ECoG_fft_levels[i]*np.conj(ECoG_fft_levels[i]))))
+#
+#    MEG_fft_levels.append(sfft.fftshift(sfft.fft(MEG_levels[i])))
+#    MEG_PSD_levels.append(10.*np.log10(np.abs(MEG_fft_levels[i]*np.conj(MEG_fft_levels[i]))))
+#
+#    plt.subplot(2,2,1)
+#    plt.plot(time_ECoG.T,ECoG_levels[i].T)
+#    plt.title('ECoG Level '+str(level[i])+' dB')
+#
+#    plt.subplot(2,2,3)
+#    plt.plot(time_MEG.T,MEG_levels[i].T)
+#    plt.title('MEG Level '+str(level[i])+' dB')
+#
+#    plt.xlabel('Time (s)')
+#
+#    plt.subplot(2,2,2)
+#    plt.plot(f_ECoG.T,ECoG_PSD_levels[i].T)
+#    plt.title('ECoG Level '+str(level[i])+' dB')
+#    plt.xlim(0,300)
+#
+#    plt.subplot(2,2,4)
+#    plt.plot(f_MEG.T,MEG_PSD_levels[i].T)
+#    plt.title('MEG Level '+str(level[i])+' dB')
+#    plt.xlim(0,300)
+#
+#    plt.xlabel('Frequency (Hz)')
+#    plt.savefig('level'+str(i)+name+'.png')
+#    plt.close()
+#
+#    i+=1
 def meg_rat_loc(n):
     r = 16#mm
     dtheta = pi - pi*(n-2)/n
@@ -148,14 +187,16 @@ for name in names:
         picks = np.intersect1d(picks,np.where(time_MEG<stop[i]))
 
         MEG_epoched = MEG[:,picks]
-        
-        print 'Low-pass filter'
-        b_ECoG_lp, a_ECoG_lp =sig.iirdesign(fc/(fs_ECoG0/2), fc/(fs_ECoG0/2)*1.1, gp, gs)
-        b_MEG_lp, a_MEG_lp =sig.iirdesign(fc/(fs_MEG0/2), fc/(fs_MEG0/2)*1.1, gp, gs)
 
-        MEG_lp = sig.filtfilt(b_MEG_lp,a_MEG_lp,MEG_epoched,axis=1)
-        ECoG_lp = sig.filtfilt(b_ECoG_lp,a_ECoG_lp,ECoG_epoched,axis=1)
-
+        if lowpass:
+            print 'Low-pass filter'
+            b_ECoG_lp, a_ECoG_lp =sig.butter(8,fc/(fs_ECoG0/2))
+            b_MEG_lp, a_MEG_lp =sig.butter(8,fc/(fs_MEG0/2))
+            MEG_lp = sig.filtfilt(b_MEG_lp,a_MEG_lp,MEG_epoched,axis=1)
+            ECoG_lp = sig.filtfilt(b_ECoG_lp,a_ECoG_lp,ECoG_epoched,axis=1)
+        else:
+            MEG_lp=MEG_epoched
+            ECoG_lp=ECoG_epoched
         print 'Decimate+anti-aliasing'
         MEG_dec = sig.decimate(MEG_lp, q, n=None, ftype='iir', axis=1, zero_phase=True)
         ECoG_dec = sig.decimate(ECoG_lp, q, n=None, ftype='iir', axis=1, zero_phase=True)
@@ -204,13 +245,10 @@ for name in names:
         MEG_trim.append(MEG_filt_epoched[p][:,0:ms_o])
 
     print 'Smush them into an array.'
-    ECoG_3=np.array(ECoG_Trim)
-    MEG_3=np.array(MEG_Trim)
+    ECoG_3=np.array(ECoG_trim)
+    MEG_3=np.array(MEG_trim)
 
     print 'Group by treatment.'
-
-    #free up memory
-    del MEG_lp,ECoG_lp,MEG,ECoG
 
     MEG_average = []
     ECoG_average = []
@@ -224,6 +262,7 @@ for name in names:
             picks = np.where(treatments[0,:]==l)
             MEG_average.append(np.mean(MEG_3[picks,:,:],axis=0))
             ECoG_average.append(np.mean(ECoG_3[picks,:,:],axis=0))
-            
+
+    del data, MEG, ECoG
 xyz = rat_loc(4)
 
