@@ -1,0 +1,6 @@
+,StimDur (ms),PulseCount,PulsePeriod (ms),PulseDur (ms),WaveAmp (dB),WaveFreq (Hz),WavePhase (deg),ModDepth (%),ModFreq (Hz),ModPhase (deg),HP_Freq (Hz),LP_Freq (Hz),User-1,User-2
+Row-1,,,,,-120.0,0.1,0.0,0.1,,,,1.0,,0.000
+Row-2,,,,,0.0,0.1,0.0,0.1,,,,1.0,,0.000
+Row-3,,,,,5.0,0.2,0.0,0.2,,,,1.0,,0.000
+Row-4,,,,,10.0,0.2,0.0,0.2,,,,1.0,,0.000
+Row-5,,,,,15.0,0.2,0.0,0.2,,,,1.0,,0.000
