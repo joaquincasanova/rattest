@@ -19,46 +19,45 @@ K = 466./257.*1e6
 plotit=False
 lowpass=False#lowpass is redundant with decimate's built in butterworth low-pass
 
-#def plot_fft(MEG,ECoG,fs_MEG,fs_ECoG):
-#    time_ECoG = np.arange(0,ns_o)/fs_ECoG
-#
-#    time_MEG = np.arange(0,ms_o)/fs_MEG
-#    
-#    f_ECoG=(sfft.fftshift(sfft.fftfreq(ns_o,1./fs_ECoG)))
-#        
-#    f_MEG=(sfft.fftshift(sfft.fftfreq(ms_o,1./fs_MEG)))
-#        
-#    ECoG_fft_levels.append(sfft.fftshift(sfft.fft(ECoG_levels[i])))
-#    ECoG_PSD_levels.append(10.*np.log10(np.abs(ECoG_fft_levels[i]*np.conj(ECoG_fft_levels[i]))))
-#
-#    MEG_fft_levels.append(sfft.fftshift(sfft.fft(MEG_levels[i])))
-#    MEG_PSD_levels.append(10.*np.log10(np.abs(MEG_fft_levels[i]*np.conj(MEG_fft_levels[i]))))
-#
-#    plt.subplot(2,2,1)
-#    plt.plot(time_ECoG.T,ECoG_levels[i].T)
-#    plt.title('ECoG Level '+str(level[i])+' dB')
-#
-#    plt.subplot(2,2,3)
-#    plt.plot(time_MEG.T,MEG_levels[i].T)
-#    plt.title('MEG Level '+str(level[i])+' dB')
-#
-#    plt.xlabel('Time (s)')
-#
-#    plt.subplot(2,2,2)
-#    plt.plot(f_ECoG.T,ECoG_PSD_levels[i].T)
-#    plt.title('ECoG Level '+str(level[i])+' dB')
-#    plt.xlim(0,300)
-#
-#    plt.subplot(2,2,4)
-#    plt.plot(f_MEG.T,MEG_PSD_levels[i].T)
-#    plt.title('MEG Level '+str(level[i])+' dB')
-#    plt.xlim(0,300)
-#
-#    plt.xlabel('Frequency (Hz)')
-#    plt.savefig('level'+str(i)+name+'.png')
-#    plt.close()
-#
-#    i+=1
+def plot_fft(MEG,ECoG,fs_MEG,fs_ECoG,label,name):
+    time_ECoG = np.arange(0,ECoG.shape[1])/fs_ECoG
+
+    time_MEG = np.arange(0,MEG.shape[1])/fs_MEG
+    
+    f_ECoG=(sfft.fftshift(sfft.fftfreq(ECoG.shape[1],1./fs_ECoG)))
+        
+    f_MEG=(sfft.fftshift(sfft.fftfreq(MEG.shape[1],1./fs_MEG)))
+        
+    ECoG_fft = sfft.fftshift(sfft.fft(ECoG))
+    ECoG_PSD = 10.*np.log10(np.abs(ECoG_fft*np.conj(ECoG_fft)))
+
+    MEG_fft = sfft.fftshift(sfft.fft(MEG))
+    MEG_PSD = 10.*np.log10(np.abs(MEG_fft*np.conj(MEG_fft)))
+
+    plt.subplot(2,2,1)
+    plt.plot(time_ECoG.T,ECoG.T)
+    plt.title('ECoG Label '+str(label))
+
+    plt.subplot(2,2,3)
+    plt.plot(time_MEG.T,MEG.T)
+    plt.title('MEG Label '+str(label))
+
+    plt.xlabel('Time (s)')
+
+    plt.subplot(2,2,2)
+    plt.plot(f_ECoG.T,ECoG_PSD.T)
+    plt.title('ECoG Label '+str(label))
+    plt.xlim(0,300)
+
+    plt.subplot(2,2,4)
+    plt.plot(f_MEG.T,MEG_PSD.T)
+    plt.title('MEG Label '+str(label))
+    plt.xlim(0,300)
+
+    plt.xlabel('Frequency (Hz)')
+    plt.savefig(name+'label'+str(label)+'.png')
+    plt.close()
+    
 def meg_rat_loc(n):
     r = 16#mm
     dtheta = pi - pi*(n-2)/n
@@ -189,7 +188,7 @@ for name in names:
         MEG_epoched = MEG[:,picks]
 
         if lowpass:
-            print 'Low-pass filter'
+            if i==0: print 'Low-pass filter'
             b_ECoG_lp, a_ECoG_lp =sig.butter(8,fc/(fs_ECoG0/2))
             b_MEG_lp, a_MEG_lp =sig.butter(8,fc/(fs_MEG0/2))
             MEG_lp = sig.filtfilt(b_MEG_lp,a_MEG_lp,MEG_epoched,axis=1)
@@ -197,14 +196,14 @@ for name in names:
         else:
             MEG_lp=MEG_epoched
             ECoG_lp=ECoG_epoched
-        print 'Decimate+anti-aliasing'
+        if i==0: print 'Decimate+anti-aliasing'
         MEG_dec = sig.decimate(MEG_lp, q, n=None, ftype='iir', axis=1, zero_phase=True)
         ECoG_dec = sig.decimate(ECoG_lp, q, n=None, ftype='iir', axis=1, zero_phase=True)
         
         fs_ECoG = fs_ECoG0/q
         fs_MEG = fs_MEG0/q
 
-        print 'Notch filter'
+        if i==0: print 'Notch filter'
         b_ECoG, a_ECoG = sig.iirnotch(f0/(fs_ECoG/2),Q)
         b_MEG, a_MEG = sig.iirnotch(f0/(fs_MEG/2),Q)
 
@@ -257,11 +256,13 @@ for name in names:
             picks = np.where(treatments[2,:]==l)
             MEG_average.append(np.mean(MEG_3[picks,:,:],axis=0))
             ECoG_average.append(np.mean(ECoG_3[picks,:,:],axis=0))
+            plot_fft(MEG_average[l],ECoG_average[l],fs_MEG,fs_ECoG,l,name)
     elif flag=='P1':
         for l in [-120,-20,-15,-10,-5,0,5]:
             picks = np.where(treatments[0,:]==l)
             MEG_average.append(np.mean(MEG_3[picks,:,:],axis=0))
             ECoG_average.append(np.mean(ECoG_3[picks,:,:],axis=0))
+            plot_fft(MEG_average[l],ECoG_average[l],fs_MEG,fs_ECoG,l,name)
 
     del data, MEG, ECoG
 xyz = rat_loc(4)
