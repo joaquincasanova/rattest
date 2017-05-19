@@ -13,12 +13,12 @@ import matplotlib.pyplot as plt
 pi = np.pi
 f0 = 60.
 fc = 300.
-gs = 20.
-gp = 0.
+gs = 60.
+gp = 1.
 Q = 30.
 q=48
 K = 466./257.*1e6
-plotit=True
+plotit=False
 
 def meg_rat_loc(n):
     r = 16#mm
@@ -155,26 +155,29 @@ for name in names:
         if plotit:
             plt.subplot(2,1,1)
             plt.plot(time_ECoG[:,ECoG_epochs_index[i]].T,ECoG_epoched[i].T)
-            plt.title('ECoG Trial '+str(i)+' Level '+str(level[i])+' dB')
+            plt.title('ECoG Trial ')
 
             plt.subplot(2,1,2)
             plt.plot(time_MEG[:,MEG_epochs_index[i]].T,MEG_epoched[i].T)
-            plt.title('MEG Trial '+str(i)+' Level '+str(level[i])+' dB')
+            plt.title('MEG Trial ')
 
             plt.xlabel('Time (s)')
             plt.show()
 
         #Low-pass filter
-        b_ECoG_lp, a_ECoG_lp =sig.iirdesign(fc/(fs_ECoG/2), fc/(fs_ECoG/2)*1.1, gpass, gstop)
-        b_MEG_lp, a_MEG_lp =sig.iirdesign(fc/(fs_MEG/2), fc/(fs_MEG/2)*1.1, gpass, gstop)
+        b_ECoG_lp, a_ECoG_lp =sig.iirdesign(fc/(fs_ECoG/2), fc/(fs_ECoG/2)*1.1, gp, gs)
+        b_MEG_lp, a_MEG_lp =sig.iirdesign(fc/(fs_MEG/2), fc/(fs_MEG/2)*1.1, gp, gs)
 
         MEG_lp = sig.filtfilt(b_MEG_lp,a_MEG_lp,MEG_epoched[i],axis=1)
         ECoG_lp = sig.filtfilt(b_ECoG_lp,a_ECoG_lp,ECoG_epoched[i],axis=1)
 
         #Decimate+anti-aliasing
-        MEG_dec = decimate(MEG_lp, q, n=None, ftype='iir', axis=1)
-        ECoG_dec = decimate(ECoG_lp, q, n=None, ftype='iir', axis=1)
+        MEG_dec = sig.decimate(MEG_lp, q, n=None, ftype='iir', axis=1)
+        ECoG_dec = sig.decimate(ECoG_lp, q, n=None, ftype='iir', axis=1)
 
+        #free up memory
+        del MEG_lp,ECoG_lp,MEG,ECoG
+        
         fs_ECoG = fs_ECog/q
         fs_ECoG = fs_ECog/q
 
@@ -216,6 +219,13 @@ for name in names:
 
     for p in picks:
         MEG_trim.append(MEG_filt_epoched[p][:,0:ms_o])
+
+    #Smush them into an array.
+    ECoG_3=np.array(ECoG_Trim)
+    MEG_3=np.array(MEG_Trim)
+
+    #Group by treatment
+    #some code here
 
 xyz = rat_loc(4)
 
