@@ -4,6 +4,8 @@ import scipy.fftpack as sfft
 import numpy as np
 import pandas
 import h5py
+import pickle
+import os.path
 
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
@@ -20,6 +22,8 @@ plotit=True
 lowpass=False#lowpass is redundant with decimate's built in butterworth low-pass
 
 def plot_fft(MEG,ECoG,fs_MEG,fs_ECoG,label,name):
+    print 'MEG: ',MEG.shape
+    print 'ECoG: ',ECoG.shape
     time_ECoG = np.arange(0,ECoG.shape[1])/fs_ECoG
 
     time_MEG = np.arange(0,MEG.shape[1])/fs_MEG
@@ -105,170 +109,187 @@ PinkFile='Oceanit1'
 ToneFile='Oceanit2'
 
 for name in names:
-    if 'P1' in name:
-        csvname_seq = directory+PinkFile+'.seq.csv'
-        csvname_par = directory+PinkFile+'.par.csv'
-        period = 1.0#s
-        flag = 'P1'
-    elif 'Tones' in name:
-        csvname_seq = directory+ToneFile+'.seq.csv'
-        csvname_par = directory+ToneFile+'.par.csv'
-        period = 0.25#s
-        flag = 'Tones'
-        
-    print 'Load trials ',name
-    try:
-        print 'Try scipy.io'
-        data=sio.loadmat(directory+name+'.mat')
-
-        #start-stop_:sound plays
-        #stop_-stop:response
-
-        start = np.array(data[name]['epocs'][0][0]['Wap_'][0][0]['onset'][0][0])
-        stop_ = np.array(data[name]['epocs'][0][0]['Wap_'][0][0]['offset'][0][0])
-        stop = start+period
-
-        ECoG = np.array(data[name]['streams'][0][0]['ECoG'][0][0]['data'][0][0])
-        MEG = np.array(data[name]['streams'][0][0]['Meg1'][0][0]['data'][0][0])
-
-        fs_ECoG0 = np.array(data[name]['streams'][0][0]['ECoG'][0][0]['fs'][0][0])
-        fs_MEG0 = np.array(data[name]['streams'][0][0]['Meg1'][0][0]['fs'][0][0])
-
-        time_ECoG = np.arange(0,ECoG.shape[1])/fs_ECoG0
-        time_MEG = np.arange(0,MEG.shape[1])/fs_MEG0
-
-        level = np.array(data[name][0][0]['epocs'][0][0]['Wap_'][0][0]['data'])
-        
-    except:
-        print 'v7.3 - use h5py'
-        data = h5py.File(directory+name+'.mat')
-
-        #start-stop_:sound plays
-        #stop_-stop:response
-
-        start = np.array(data[name]['epocs']['Wap_']['onset']).T
-        stop_ = np.array(data[name]['epocs']['Wap_']['offset']).T
-        stop = start+period
-
-        ECoG = np.array(data[name]['streams']['ECoG']['data']).T
-        MEG = np.array(data[name]['streams']['Meg1']['data']).T
-
-        fs_ECoG0 = np.array(data[name]['streams']['ECoG']['fs'])
-        fs_MEG0 = np.array(data[name]['streams']['Meg1']['fs'])
-
-        time_ECoG = np.arange(0,ECoG.shape[1])/fs_ECoG0
-        time_MEG = np.arange(0,MEG.shape[1])/fs_MEG0
-
-        level = np.array(data[name]['epocs']['Wap_']['data']).T
-
-    #Read sequence data    
-    treatments,n_treat = read_sequence(csvname_seq,csvname_par,flag,level)
-
-    print 'Epoch trials/filter epoched trials'
-    n_epochs=start.shape[0]
     
-    ECoG_epochs_index = []
-    MEG_epochs_index = []
-     
-    ECoG_epoched = []
-    MEG_epoched = []
-     
-    ECoG_filt_epoched = []
-    MEG_filt_epoched = []
-    
-    for i in range(0,n_epochs):
-        picks = np.where(time_ECoG>=start[i])
-        picks = np.intersect1d(picks,np.where(time_ECoG<stop[i]))
+    if not os.path.isfile(name+'.pickle'): 
+        if 'P1' in name:
+            csvname_seq = directory+PinkFile+'.seq.csv'
+            csvname_par = directory+PinkFile+'.par.csv'
+            period = 1.0#s
+            flag = 'P1'
+        elif 'Tones' in name:
+            csvname_seq = directory+ToneFile+'.seq.csv'
+            csvname_par = directory+ToneFile+'.par.csv'
+            period = 0.25#s
+            flag = 'Tones'
 
-        ECoG_epoched = ECoG[:,picks]
-        
-        picks = np.where(time_MEG>=start[i])
-        picks = np.intersect1d(picks,np.where(time_MEG<stop[i]))
+        print 'Load trials ',name
+        try:
+            print 'Try scipy.io'
+            data=sio.loadmat(directory+name+'.mat')
 
-        MEG_epoched = MEG[:,picks]
+            #start-stop_:sound plays
+            #stop_-stop:response
 
-        if lowpass:
-            if i==0: print 'Low-pass filter'
-            b_ECoG_lp, a_ECoG_lp =sig.butter(8,fc/(fs_ECoG0/2))
-            b_MEG_lp, a_MEG_lp =sig.butter(8,fc/(fs_MEG0/2))
-            MEG_lp = sig.filtfilt(b_MEG_lp,a_MEG_lp,MEG_epoched,axis=1)
-            ECoG_lp = sig.filtfilt(b_ECoG_lp,a_ECoG_lp,ECoG_epoched,axis=1)
-        else:
-            MEG_lp=MEG_epoched
-            ECoG_lp=ECoG_epoched
-        if i==0: print 'Decimate+anti-aliasing'
-        MEG_dec = sig.decimate(MEG_lp, q, n=None, ftype='iir', axis=1, zero_phase=True)
-        ECoG_dec = sig.decimate(ECoG_lp, q, n=None, ftype='iir', axis=1, zero_phase=True)
-        
-        fs_ECoG = fs_ECoG0/q
-        fs_MEG = fs_MEG0/q
+            start = np.array(data[name]['epocs'][0][0]['Wap_'][0][0]['onset'][0][0])
+            stop_ = np.array(data[name]['epocs'][0][0]['Wap_'][0][0]['offset'][0][0])
+            stop = start+period
 
-        if i==0: print 'Notch filter'
-        b_ECoG, a_ECoG = sig.iirnotch(f0/(fs_ECoG/2),Q)
-        b_MEG, a_MEG = sig.iirnotch(f0/(fs_MEG/2),Q)
+            ECoG = np.array(data[name]['streams'][0][0]['ECoG'][0][0]['data'][0][0])
+            MEG = np.array(data[name]['streams'][0][0]['Meg1'][0][0]['data'][0][0])
 
-        MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_dec,axis=1)
-        ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_dec,axis=1)
-        for m in range(2,6):
-            #print 'Notch filter ',m*f0/(fs_ECoG/2)
-            b_ECoG, a_ECoG = sig.iirnotch(m*f0/(fs_ECoG/2),Q)
-            b_MEG, a_MEG = sig.iirnotch(m*f0/(fs_MEG/2),Q)
+            fs_ECoG0 = np.array(data[name]['streams'][0][0]['ECoG'][0][0]['fs'][0][0])
+            fs_MEG0 = np.array(data[name]['streams'][0][0]['Meg1'][0][0]['fs'][0][0])
 
-            MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_filt,axis=1)
-            ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_filt,axis=1)
+            time_ECoG = np.arange(0,ECoG.shape[1])/fs_ECoG0
+            time_MEG = np.arange(0,MEG.shape[1])/fs_MEG0
+
+            level = np.array(data[name][0][0]['epocs'][0][0]['Wap_'][0][0]['data'])
+
+        except:
+            print 'v7.3 - use h5py'
+            data = h5py.File(directory+name+'.mat')
+
+            #start-stop_:sound plays
+            #stop_-stop:response
+
+            start = np.array(data[name]['epocs']['Wap_']['onset']).T
+            stop_ = np.array(data[name]['epocs']['Wap_']['offset']).T
+            stop = start+period
+
+            ECoG = np.array(data[name]['streams']['ECoG']['data']).T
+            MEG = np.array(data[name]['streams']['Meg1']['data']).T
+
+            fs_ECoG0 = np.array(data[name]['streams']['ECoG']['fs'])
+            fs_MEG0 = np.array(data[name]['streams']['Meg1']['fs'])
+
+            time_ECoG = np.arange(0,ECoG.shape[1])/fs_ECoG0
+            time_MEG = np.arange(0,MEG.shape[1])/fs_MEG0
+
+            level = np.array(data[name]['epocs']['Wap_']['data']).T
+
+        #Read sequence data    
+        treatments,n_treat = read_sequence(csvname_seq,csvname_par,flag,level)
+
+        print 'Epoch trials/filter epoched trials'
+        n_epochs=start.shape[0]
+
+        ECoG_epochs_index = []
+        MEG_epochs_index = []
+
+        ECoG_epoched = []
+        MEG_epoched = []
+
+        ECoG_filt_epoched = []
+        MEG_filt_epoched = []
+
+        for i in range(0,n_epochs):
+            picks = np.where(time_ECoG>=start[i])
+            picks = np.intersect1d(picks,np.where(time_ECoG<stop[i]))
+
+            ECoG_epoched = ECoG[:,picks]
+
+            picks = np.where(time_MEG>=start[i])
+            picks = np.intersect1d(picks,np.where(time_MEG<stop[i]))
+
+            MEG_epoched = MEG[:,picks]
+
+            if lowpass:
+                if i==0: print 'Low-pass filter'
+                b_ECoG_lp, a_ECoG_lp =sig.butter(8,fc/(fs_ECoG0/2))
+                b_MEG_lp, a_MEG_lp =sig.butter(8,fc/(fs_MEG0/2))
+                MEG_lp = sig.filtfilt(b_MEG_lp,a_MEG_lp,MEG_epoched,axis=1)
+                ECoG_lp = sig.filtfilt(b_ECoG_lp,a_ECoG_lp,ECoG_epoched,axis=1)
+            else:
+                MEG_lp=MEG_epoched
+                ECoG_lp=ECoG_epoched
+            if i==0: print 'Decimate+anti-aliasing'
+            MEG_dec = sig.decimate(MEG_lp, q, n=None, ftype='iir', axis=1, zero_phase=True)
+            ECoG_dec = sig.decimate(ECoG_lp, q, n=None, ftype='iir', axis=1, zero_phase=True)
+
+            fs_ECoG = fs_ECoG0/q
+            fs_MEG = fs_MEG0/q
+
+            if i==0: print 'Notch filter'
+            b_ECoG, a_ECoG = sig.iirnotch(f0/(fs_ECoG/2),Q)
+            b_MEG, a_MEG = sig.iirnotch(f0/(fs_MEG/2),Q)
+
+            MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_dec,axis=1)
+            ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_dec,axis=1)
+            for m in range(2,6):
+                #print 'Notch filter ',m*f0/(fs_ECoG/2)
+                b_ECoG, a_ECoG = sig.iirnotch(m*f0/(fs_ECoG/2),Q)
+                b_MEG, a_MEG = sig.iirnotch(m*f0/(fs_MEG/2),Q)
+
+                MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_filt,axis=1)
+                ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_filt,axis=1)
 
 
-        MEG_filt_epoched.append(MEG_filt)
-        ECoG_filt_epoched.append(ECoG_filt)
+            MEG_filt_epoched.append(MEG_filt)
+            ECoG_filt_epoched.append(ECoG_filt)
 
-    print 'Trim trials to same length.'
-    ECoG_trim = []
-    MEG_trim = []
-    ns_o = 1e6
-    ms_o = 1e6
+        print 'Trim trials to same length.'
+        ECoG_trim = []
+        MEG_trim = []
+        ns_o = 1e6
+        ms_o = 1e6
 
-    for p in range(0,n_epochs):
-        ns = ECoG_filt_epoched[p].shape[1]
-        if ns<ns_o:
-            ns_o=ns
+        for p in range(0,n_epochs):
+            ns = ECoG_filt_epoched[p].shape[1]
+            if ns<ns_o:
+                ns_o=ns
 
-    for p in range(0,n_epochs):
-        ECoG_trim.append(ECoG_filt_epoched[p][:,0:ns_o])
+        for p in range(0,n_epochs):
+            ECoG_trim.append(ECoG_filt_epoched[p][:,0:ns_o])
 
-    for p in range(0,n_epochs):
-        ms = MEG_filt_epoched[p].shape[1]
-        if ms<ms_o:
-            ms_o=ms
+        for p in range(0,n_epochs):
+            ms = MEG_filt_epoched[p].shape[1]
+            if ms<ms_o:
+                ms_o=ms
 
-    for p in range(0,n_epochs):
-        MEG_trim.append(MEG_filt_epoched[p][:,0:ms_o])
+        for p in range(0,n_epochs):
+            MEG_trim.append(MEG_filt_epoched[p][:,0:ms_o])
 
-    print 'Smush them into an array.'
-    ECoG_3=np.array(ECoG_trim)
-    MEG_3=np.array(MEG_trim)
+        print 'Smush them into an array.'
+        ECoG_3=np.array(ECoG_trim)
+        MEG_3=np.array(MEG_trim)
 
-    print 'Group by treatment.'
+        print 'Group by treatment.'
 
+        with open(name+'.pickle', 'w') as f:
+            pickle.dump({"ECoG_3":ECoG_3, "MEG_3":MEG_3, "fs_MEG":fs_MEG, "fs_ECoG":fs_ECoG, "flag":flag, "n_treat":n_treat, "treatments":treatments}, f)
+        del data, MEG, ECoG
+    else:
+        with open(name+'.pickle', 'r') as f:
+            b=pickle.load(f)
+            ECoG_3 = b["ECoG_3"]
+            MEG_3 = b["MEG_3"]
+            fs_MEG = b["fs_MEG"]
+            fs_ECoG = b["fs_ECoG"]
+            flag = b["flag"]
+            n_treat = b["n_treat"]
+            treatments = b["treatments"]
+            
     MEG_average = []
     ECoG_average = []
     if flag=='Tones':
-        ll=0
-        for l in range(1,n_treat+1):
-            picks = np.where(treatments[2,:]==l)
-            MEG_average.append(np.mean(MEG_3[picks,:,:],axis=0))
-            ECoG_average.append(np.mean(ECoG_3[picks,:,:],axis=0))
-            if plotit:
-                plot_fft(MEG_average[ll],ECoG_average[ll],fs_MEG,fs_ECoG,ll,name)
-            ll+=1
+        indices = range(1,n_treat+1)
     elif flag=='P1':
-        ll=0
-        for l in [-120.,-20.,-15.,-10.,-5.,0.,5.]:
-            picks = np.where(treatments[0,:]==l)
-            MEG_average.append(np.mean(MEG_3[picks,:,:],axis=0))
-            ECoG_average.append(np.mean(ECoG_3[picks,:,:],axis=0))
+        indices = [-120.,-20.,-15.,-10.,-5.,0.,5.]
+        
+    ll=0
+    for l in indices:
+        picks = np.where(treatments[2,:]==l)
+        print 'Treatment: ', l,'Level indices: ', picks
+            
+        if picks.shape==0:
+            continue
+        else:
+            tmp = np.mean(MEG_3[picks,:,:],axis=0)
+            MEG_average.append(tmp)
+            tmp = np.mean(ECoG_3[picks,:,:],axis=0)
+            ECoG_average.append(tmp)
             if plotit:
                 plot_fft(MEG_average[ll],ECoG_average[ll],fs_MEG,fs_ECoG,ll,name)
-            ll+=1
-    del data, MEG, ECoG
+        ll+=1
 xyz = rat_loc(4)
 
