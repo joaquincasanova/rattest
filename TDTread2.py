@@ -16,7 +16,7 @@ pi = np.pi
 f0 = 60.#mains
 fc = 300.#cutoff
 Q = 15.#notch Q at 60, bw=4hz
-q=48#decimation
+q=8#decimation
 K = 466./257.*1e6
 plotit=True
 lowpass=True#lowpass is redundant with decimate's built in butterworth low-pass
