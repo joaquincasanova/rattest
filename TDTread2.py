@@ -61,6 +61,12 @@ def plot_fft(MEG,ECoG,fs_MEG,fs_ECoG,label,name):
     plt.xlabel('Frequency (Hz)')
     plt.savefig(name+'label'+str(label)+'.png')
     plt.close()
+
+def sph2cart(az,el,r):
+    x = r * np.cos(el) * np.cos(az)
+    y = r * np.cos(el) * np.sin(az)
+    z = r * np.sin(el)
+    return x, y, z
     
 def meg_rat_loc(n):
     r = 16#mm
@@ -72,13 +78,26 @@ def meg_rat_loc(n):
     return np.hstack((x,y,z))
 
 
-def ecog_rat_loc(n):
-    r = 16#mm
-    dtheta = pi - pi*(n-2)/n
-    theta=np.arange(0,n-2)*dtheta
-    x = r*np.cos(theta)
-    y = 0
-    z = r*np.sin(theta)
+def ecog_rat_loc():
+    p = 0.750#mm
+    x0, y0 = -1.0,0.0
+    #15 16 13 14
+    # 9 12 11 10
+    # 7  6  5  8
+    # 1  2  3  4
+    #xp,yp on cortical surface
+    xp = [-3*p,-2*p,  -p,   0,
+            -p,-2*p,-3*p,   0,
+          -3*p,   0,  -p,-2*p,
+            -p,   0,-3*p,-2*p]+x0
+    yp = [   0,   0,   0,   0,
+             p,   p,   p,   p,
+           2*p, 2*p, 2*p, 2*p,
+           3*p, 3*p, 3*p, 3*p]+y0
+    r=16.*np.ones(size(yp))#mm
+    phi = np.arcsin(yp/r)
+    theta = np.arccos(xp/(r*np.cos(phi)))
+    x,y,z=sph2cart(theta,phi,r)
     return np.hstack((x,y,z))
 
 def read_sequence(fname_seq,fname_par,flag,levels_in):
@@ -292,5 +311,7 @@ for name in names:
             if plotit:
                 plot_fft(MEG_average[ll],ECoG_average[ll],fs_MEG,fs_ECoG,ll,name)
         ll+=1
-xyz = rat_loc(4)
-
+        meg_xyz = meg_rat_loc(4)
+        ecog_xyz = ecog_rat_loc(4)
+        with open(name+'grouped.pickle', 'w') as f:
+            pickle.dump({"ECoG_average":ECoG_average, "MEG_average":MEG_average, "fs_MEG":fs_MEG, "fs_ECoG":fs_ECoG, "flag":flag, "n_treat":n_treat, "treatments":treatments, "meg_xyz":meg_xyz, "ecog_xyz":ecog_xyz}, f)
