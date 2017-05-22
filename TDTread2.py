@@ -183,12 +183,12 @@ for name in names:
         MEG_filt_epoched = []
 
         for i in range(0,n_epochs):
-            picks = np.where(time_ECoG>=start[i])
+            picks = np.where(time_ECoG>=stop_[i])
             picks = np.intersect1d(picks,np.where(time_ECoG<stop[i]))
 
             ECoG_epoched = ECoG[:,picks]
 
-            picks = np.where(time_MEG>=start[i])
+            picks = np.where(time_MEG>=stop_[i])
             picks = np.intersect1d(picks,np.where(time_MEG<stop[i]))
 
             MEG_epoched = MEG[:,picks]
@@ -278,7 +278,8 @@ for name in names:
         
     ll=0
     for l in indices:
-        picks = np.where(treatments[2,:]==l)
+        picks = np.where(treatments[:,2]==l)
+        picks=picks[0]
         print 'Treatment: ', l,'Level indices: ', picks
             
         if picks.shape==0:
