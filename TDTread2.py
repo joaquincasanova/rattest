@@ -15,11 +15,12 @@ import matplotlib.pyplot as plt
 pi = np.pi
 f0 = 60.#mains
 fc = 300.#cutoff
-Q = 30.#notch Q
+Q = 15.#notch Q at 60, bw=4hz
 q=48#decimation
 K = 466./257.*1e6
 plotit=True
-lowpass=False#lowpass is redundant with decimate's built in butterworth low-pass
+lowpass=True#lowpass is redundant with decimate's built in butterworth low-pass
+mains = True
 
 def plot_fft(MEG,ECoG,fs_MEG,fs_ECoG,label,name):
     print 'MEG: ',MEG.shape
@@ -86,15 +87,15 @@ def ecog_rat_loc():
     # 7  6  5  8
     # 1  2  3  4
     #xp,yp on cortical surface
-    xp = [-3*p,-2*p,  -p,   0,
+    xp = np.array([-3*p,-2*p,  -p,   0,
             -p,-2*p,-3*p,   0,
           -3*p,   0,  -p,-2*p,
-            -p,   0,-3*p,-2*p]+x0
-    yp = [   0,   0,   0,   0,
+            -p,   0,-3*p,-2*p])+x0
+    yp = np.array([   0,   0,   0,   0,
              p,   p,   p,   p,
            2*p, 2*p, 2*p, 2*p,
-           3*p, 3*p, 3*p, 3*p]+y0
-    r=16.*np.ones(size(yp))#mm
+           3*p, 3*p, 3*p, 3*p])+y0
+    r=14.*np.ones(np.size(yp))#mm
     phi = np.arcsin(yp/r)
     theta = np.arccos(xp/(r*np.cos(phi)))
     x,y,z=sph2cart(theta,phi,r)
@@ -123,7 +124,7 @@ def read_sequence(fname_seq,fname_par,flag,levels_in):
     return treatments, n_treat
                     
 directory='./oceanit/05182017/'
-names=['ECOG_MEG_P1','ECOG_MEG_Tones','ECOG_MEG_Iso_Tones']#'ECOG_Live_1_Bad_ground','ECOG_Lives_2_Pink',]
+names=['ECOG_MEG_P1']#,'ECOG_MEG_Tones','ECOG_MEG_Iso_Tones']#'ECOG_Live_1_Bad_ground','ECOG_Lives_2_Pink',]
 PinkFile='Oceanit1'
 ToneFile='Oceanit2'
 
@@ -202,12 +203,12 @@ for name in names:
         MEG_filt_epoched = []
 
         for i in range(0,n_epochs):
-            picks = np.where(time_ECoG>=stop_[i])
+            picks = np.where(time_ECoG>=start[i])
             picks = np.intersect1d(picks,np.where(time_ECoG<stop[i]))
 
             ECoG_epoched = ECoG[:,picks]
 
-            picks = np.where(time_MEG>=stop_[i])
+            picks = np.where(time_MEG>=start[i])
             picks = np.intersect1d(picks,np.where(time_MEG<stop[i]))
 
             MEG_epoched = MEG[:,picks]
@@ -227,20 +228,24 @@ for name in names:
 
             fs_ECoG = fs_ECoG0/q
             fs_MEG = fs_MEG0/q
+            if mains:
+                if i==0: print 'Notch filter ',f0
+                b_ECoG, a_ECoG = sig.iirnotch(f0/(fs_ECoG/2),Q)
+                b_MEG, a_MEG = sig.iirnotch(f0/(fs_MEG/2),Q)
 
-            if i==0: print 'Notch filter'
-            b_ECoG, a_ECoG = sig.iirnotch(f0/(fs_ECoG/2),Q)
-            b_MEG, a_MEG = sig.iirnotch(f0/(fs_MEG/2),Q)
+                MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_dec,axis=1)
+                ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_dec,axis=1)
+                for m in range(2,6):
+                    if i==0: print 'Notch filter ',f0*m
+                    #print 'Notch filter ',m*f0/(fs_ECoG/2)
+                    b_ECoG, a_ECoG = sig.iirnotch(m*f0/(fs_ECoG/2),Q)
+                    b_MEG, a_MEG = sig.iirnotch(m*f0/(fs_MEG/2),Q)
 
-            MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_dec,axis=1)
-            ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_dec,axis=1)
-            for m in range(2,6):
-                #print 'Notch filter ',m*f0/(fs_ECoG/2)
-                b_ECoG, a_ECoG = sig.iirnotch(m*f0/(fs_ECoG/2),Q)
-                b_MEG, a_MEG = sig.iirnotch(m*f0/(fs_MEG/2),Q)
-
-                MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_filt,axis=1)
-                ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_filt,axis=1)
+                    MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_filt,axis=1)
+                    ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_filt,axis=1)
+            else:
+                MEG_filt=MEG_dec
+                ECoG_filt=ECoG_dec
 
 
             MEG_filt_epoched.append(MEG_filt)
@@ -304,7 +309,7 @@ for name in names:
         if picks.shape==0:
             continue
         else:
-            tmp = np.mean(MEG_3[picks,:,:],axis=0)
+            tmp = np.mean(MEG_3[picks,:,:],axis=0)/K
             MEG_average.append(tmp)
             tmp = np.mean(ECoG_3[picks,:,:],axis=0)
             ECoG_average.append(tmp)
@@ -312,6 +317,6 @@ for name in names:
                 plot_fft(MEG_average[ll],ECoG_average[ll],fs_MEG,fs_ECoG,ll,name)
         ll+=1
         meg_xyz = meg_rat_loc(4)
-        ecog_xyz = ecog_rat_loc(4)
-        with open(name+'grouped.pickle', 'w') as f:
-            pickle.dump({"ECoG_average":ECoG_average, "MEG_average":MEG_average, "fs_MEG":fs_MEG, "fs_ECoG":fs_ECoG, "flag":flag, "n_treat":n_treat, "treatments":treatments, "meg_xyz":meg_xyz, "ecog_xyz":ecog_xyz}, f)
+        ecog_xyz = ecog_rat_loc()
+        with open(name+'.grouped.pickle', 'w') as f:
+            pickle.dump({"ECoG_average":ECoG_average, "MEG_average":MEG_average, "fs_MEG":fs_MEG, "fs_ECoG":fs_ECoG, "flag":flag, "n_treat":n_treat, "treatments":treatments, "meg_xyz":meg_xyz, "ecog_xyz":ecog_xyz}, f)#MEG in Tesla
