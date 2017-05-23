@@ -124,7 +124,7 @@ def read_sequence(fname_seq,fname_par,flag,levels_in):
     return treatments, n_treat
                     
 directory='./oceanit/05182017/'
-names=['ECOG_MEG_P1']#,'ECOG_MEG_Tones','ECOG_MEG_Iso_Tones']#'ECOG_Live_1_Bad_ground','ECOG_Lives_2_Pink',]
+names=['ECOG_MEG_P1','ECOG_MEG_Tones','ECOG_MEG_Iso_Tones']#'ECOG_Live_1_Bad_ground','ECOG_Lives_2_Pink',]
 PinkFile='Oceanit1'
 ToneFile='Oceanit2'
 
