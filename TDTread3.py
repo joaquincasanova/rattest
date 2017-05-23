@@ -22,6 +22,19 @@ plotit=True
 lowpass=True#lowpass is redundant with decimate's built in butterworth low-pass
 mains = True
 
+def plot3d(data,xyz,batch,step):
+
+    fig = plt.figure()
+    
+    print "plotting real" 
+    fplot=np.squeeze(data[batch][:,step])
+
+    ax = fig.add_subplot(1,1,1, projection='3d')
+
+    ax.plot_trisurf(np.squeeze(xyz[:,1]), np.squeeze(xyz[:,2]), fplot, cmap=cm.jet, linewidth=0.2)
+
+    plt.show()
+
 def plot_fft(MEG,ECoG,fs_MEG,fs_ECoG,label,name):
     print 'MEG: ',MEG.shape
     print 'ECoG: ',ECoG.shape
@@ -82,14 +95,17 @@ def sph2cart(az,el,r):
     z = r * np.sin(el)
     return x, y, z
     
-def meg_rat_loc(n):
-    r = 16#mm
-    dtheta = pi - pi*(n-2)/n
-    theta=np.arange(n-1,-1,-1)*dtheta
+def meg_rat_loc():
+    r = 16.#mm
+    dtheta = pi/3
+    theta=np.array([0.,1.,2.,3.])
     x = r*np.cos(theta)
-    y = 0
+    y = [0.,0.,0.,0.]
     z = r*np.sin(theta)
-    return np.hstack((x,y,z))
+    print 'x ',x
+    print 'y ',y
+    print 'z ',z
+    return np.hstack((x,y,z)).reshape(3,4).T
 
 
 def ecog_rat_loc():
@@ -111,8 +127,13 @@ def ecog_rat_loc():
     r=14.*np.ones(np.size(yp))#mm
     phi = np.arcsin(yp/r)
     theta = np.arccos(xp/(r*np.cos(phi)))
-    x,y,z=sph2cart(theta,phi,r)
-    return np.hstack((x,y,z))
+    y,x,z=sph2cart(theta,phi,r)
+    print 'x ',x
+    print 'y ',y
+    print 'z ',z
+    return np.hstack((x,y,z)).reshape(3,16).T
+
+#    return np.hstack((x.T,y.T,z.T))
 
 def read_sequence(fname_seq,fname_par,flag,levels_in):
     print fname_seq, fname_par
@@ -137,7 +158,7 @@ def read_sequence(fname_seq,fname_par,flag,levels_in):
     return treatments, n_treat
                     
 directory='./oceanit/05182017/'
-names=['ECOG_Live_1_Bad_ground','ECOG_Live_2','ECOG_MEG_P1','ECOG_MEG_Tones','ECOG_MEG_Iso_Tones']#
+names=['ECOG_MEG_P1']#,'ECOG_Live_1_Bad_ground','ECOG_Live_2','ECOG_MEG_Tones','ECOG_MEG_Iso_Tones']#
 PinkFile='Oceanit1'
 ToneFile='Oceanit2'
 
@@ -350,8 +371,10 @@ for name in names:
             ECoG_average.append(tmp)
             if plotit:
                 plot_fft(MEG_average[ll],ECoG_average[ll],fs_MEG,fs_ECoG,ll,name)
+
         ll+=1
-        meg_xyz = meg_rat_loc(4)
+        meg_xyz = meg_rat_loc()
         ecog_xyz = ecog_rat_loc()
+        plot3d(ECoG_average,ecog_xyz,ll-1,300)
         with open(name+'.grouped.pickle', 'w') as f:
             pickle.dump({"ECoG_average":ECoG_average, "MEG_average":MEG_average, "fs_MEG":fs_MEG, "fs_ECoG":fs_ECoG, "flag":flag, "n_treat":n_treat, "treatments":treatments, "meg_xyz":meg_xyz, "ecog_xyz":ecog_xyz}, f)#MEG in Tesla
