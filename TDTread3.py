@@ -115,12 +115,12 @@ def read_sequence(fname_seq,fname_par,flag,levels_in):
     if flag is 'P1':
         treatments=np.hstack((levels_in,levels_in*0.0,levels_in))
         print 'Levels file is incorrect for P1 test, use levels embedded in real data.'
+        n_treat=levels_in.shape[0]
     else:        
         treatments[:,0]=level[sequence[0:len(sequence)]]
         treatments[:,1]=freq[sequence[0:len(sequence)]]
         treatments[:,2]=sequence[0:len(sequence)]
-
-    n_treat=levels_in.shape[0]
+        n_treat=len(level)
     return treatments, n_treat
                     
 directory='./oceanit/05182017/'
@@ -190,34 +190,38 @@ for name in names:
         #Read sequence data    
         treatments,n_treat = read_sequence(csvname_seq,csvname_par,flag,level)
         print 'Filter entire waveforms'
-
-        if lowpass:
-            print 'Low-pass filter'
-            b_ECoG_lp, a_ECoG_lp =sig.butter(8,fc/(fs_ECoG0/2))
-            b_MEG_lp, a_MEG_lp =sig.butter(8,fc/(fs_MEG0/2))
-            MEG_lp = sig.filtfilt(b_MEG_lp,a_MEG_lp,MEG,axis=1)
-            ECoG_lp = sig.filtfilt(b_ECoG_lp,a_ECoG_lp,ECoG,axis=1)
-        else:
-            MEG_lp=MEG
-            ECoG_lp=ECoG
-        
+        MEG_dec = np.zeros([MEG.shape[0],int(MEG.shape[1]/q)+1])
+        ECoG_dec = np.zeros([ECoG.shape[0],int(ECoG.shape[1]/q)+1])
         if q==1:
-            MEG_dec=MEG_lp
-            ECoG_dec=ECoG_lp
+            MEG_dec=MEG
+            ECoG_dec=ECoG
         else:
             print 'Decimate+anti-aliasing'
-            MEG_dec = sig.decimate(MEG_lp, q, n=None, ftype='iir', axis=1, zero_phase=True)
-            ECoG_dec = sig.decimate(ECoG_lp, q, n=None, ftype='iir', axis=1, zero_phase=True)
+            for i in range(0,MEG.shape[0]):
+                MEG_dec[i,:] = sig.decimate(MEG[i,:], q, n=None, ftype='iir', zero_phase=True)
+            for i in range(0,ECoG.shape[0]):
+                ECoG_dec[i,:] = sig.decimate(ECoG[i,:], q, n=None, ftype='iir', zero_phase=True)
     
         fs_ECoG = fs_ECoG0/q
         fs_MEG = fs_MEG0/q
+
+        if lowpass:
+            print 'Low-pass filter'
+            b_ECoG_lp, a_ECoG_lp =sig.butter(8,fc/(fs_ECoG/2))
+            b_MEG_lp, a_MEG_lp =sig.butter(8,fc/(fs_MEG/2))
+            MEG_lp = sig.filtfilt(b_MEG_lp,a_MEG_lp,MEG_dec,axis=1)
+            ECoG_lp = sig.filtfilt(b_ECoG_lp,a_ECoG_lp,ECoG_dec,axis=1)
+        else:
+            MEG_lp=MEG_dec
+            ECoG_lp=ECoG_dec
+
         if mains:
             print 'Notch filter ',f0,Q
             b_ECoG, a_ECoG = sig.iirnotch(f0/(fs_ECoG/2),Q)
             b_MEG, a_MEG = sig.iirnotch(f0/(fs_MEG/2),Q)
 
-            MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_dec,axis=1)
-            ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_dec,axis=1)
+            MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_lp,axis=1)
+            ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_lp,axis=1)
             for m in range(2,6):
                 print 'Notch filter ',f0*m,Q*m
                 #print 'Notch filter ',m*f0/(fs_ECoG/2)
@@ -227,11 +231,11 @@ for name in names:
                 MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_filt,axis=1)
                 ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_filt,axis=1)
         else:
-            MEG_filt=MEG_dec
-            ECoG_filt=ECoG_dec      
+            MEG_filt=MEG_lp
+            ECoG_filt=ECoG_lp      
         
         
-        print 'Epoch epoch filtered trials'
+        print 'Epoch filtered trials'
         n_epochs=start.shape[0]
 
         time_ECoG = np.arange(0,ECoG_filt.shape[1])/fs_ECoG
@@ -288,7 +292,7 @@ for name in names:
 
         with open(name+'.pickle', 'w') as f:
             pickle.dump({"ECoG_3":ECoG_3, "MEG_3":MEG_3, "fs_MEG":fs_MEG, "fs_ECoG":fs_ECoG, "flag":flag, "n_treat":n_treat, "treatments":treatments}, f)
-        del data, MEG, ECoG
+        #del data, MEG, ECoG
     else:
         with open(name+'.pickle', 'r') as f:
             b=pickle.load(f)
