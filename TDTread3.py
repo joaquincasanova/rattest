@@ -63,6 +63,19 @@ def plot_fft(MEG,ECoG,fs_MEG,fs_ECoG,label,name):
     plt.savefig(name+'label'+str(label)+'.png')
     plt.close()
 
+def remove_stim(data,time,start,stop_):
+    print 'Remove stimulus'
+    mask = []
+    for i in range(0,start.shape[0]):
+        picks = np.where(time>=start[i])
+        picks = np.intersect1d(picks,np.where(time<stop_[i]))
+        mask = np.union1d(mask,picks)
+    data_ = np.delete(data,mask,1)
+    time_ = np.delete(time,mask,1)
+    print data.shape, time.shape
+    print data_.shape, time_.shape
+    return data_, time_
+    
 def sph2cart(az,el,r):
     x = r * np.cos(el) * np.cos(az)
     y = r * np.cos(el) * np.sin(az)
@@ -187,6 +200,9 @@ for name in names:
 
             level = np.array(data[name]['epocs']['Wap_']['data']).T
 
+#        ECoG, time_ECoG = remove_stim(ECoG,time_ECoG,start,stop_)
+#        MEG, time_MEG = remove_stim(MEG,time_MEG,start,stop_)
+
         #Read sequence data    
         treatments,n_treat = read_sequence(csvname_seq,csvname_par,flag,level)
         print 'Filter entire waveforms'
@@ -204,7 +220,9 @@ for name in names:
     
         fs_ECoG = fs_ECoG0/q
         fs_MEG = fs_MEG0/q
-
+#        time_ECoG = time_ECoG[0,0:-1:q]
+#        time_MEG = time_MEG[0,0:-1:q]
+        
         if lowpass:
             print 'Low-pass filter'
             b_ECoG_lp, a_ECoG_lp =sig.butter(8,fc/(fs_ECoG/2))
@@ -234,12 +252,12 @@ for name in names:
             MEG_filt=MEG_lp
             ECoG_filt=ECoG_lp      
         
-        
-        print 'Epoch filtered trials'
-        n_epochs=start.shape[0]
-
+ 
         time_ECoG = np.arange(0,ECoG_filt.shape[1])/fs_ECoG
         time_MEG = np.arange(0,MEG_filt.shape[1])/fs_MEG
+       
+        print 'Epoch filtered trials'
+        n_epochs=start.shape[0]
 
         ECoG_epochs_index = []
         MEG_epochs_index = []
@@ -292,7 +310,7 @@ for name in names:
 
         with open(name+'.pickle', 'w') as f:
             pickle.dump({"ECoG_3":ECoG_3, "MEG_3":MEG_3, "fs_MEG":fs_MEG, "fs_ECoG":fs_ECoG, "flag":flag, "n_treat":n_treat, "treatments":treatments}, f)
-        #del data, MEG, ECoG
+        del data, MEG, ECoG
     else:
         with open(name+'.pickle', 'r') as f:
             b=pickle.load(f)
