@@ -137,7 +137,7 @@ def read_sequence(fname_seq,fname_par,flag,levels_in):
     return treatments, n_treat
                     
 directory='./oceanit/05182017/'
-names=['ECOG_MEG_P1','ECOG_MEG_Tones','ECOG_MEG_Iso_Tones']#'ECOG_Live_1_Bad_ground','ECOG_Lives_2_Pink',]
+names=['ECOG_Live_1_Bad_ground','ECOG_Live_2','ECOG_MEG_P1','ECOG_MEG_Tones','ECOG_MEG_Iso_Tones']#
 PinkFile='Oceanit1'
 ToneFile='Oceanit2'
 
@@ -154,6 +154,11 @@ for name in names:
             csvname_par = directory+ToneFile+'.par.csv'
             period = 0.25#s
             flag = 'Tones'
+        else:
+            csvname_seq = directory+PinkFile+'.seq.csv'
+            csvname_par = directory+PinkFile+'.par.csv'
+            period = 1.0#s
+            flag = 'P1'
 
         print 'Load trials ',name
         try:
@@ -178,7 +183,8 @@ for name in names:
 
             level = np.array(data[name][0][0]['epocs'][0][0]['Wap_'][0][0]['data'])
 
-        except:
+        except Exception, e:
+            print e
             print 'v7.3 - use h5py'
             data = h5py.File(directory+name+'.mat')
 
