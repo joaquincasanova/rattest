@@ -189,15 +189,56 @@ for name in names:
 
         #Read sequence data    
         treatments,n_treat = read_sequence(csvname_seq,csvname_par,flag,level)
+        print 'Filter entire waveforms'
 
-        print 'Epoch trials/filter epoched trials'
+        if lowpass:
+            print 'Low-pass filter'
+            b_ECoG_lp, a_ECoG_lp =sig.butter(8,fc/(fs_ECoG0/2))
+            b_MEG_lp, a_MEG_lp =sig.butter(8,fc/(fs_MEG0/2))
+            MEG_lp = sig.filtfilt(b_MEG_lp,a_MEG_lp,MEG,axis=1)
+            ECoG_lp = sig.filtfilt(b_ECoG_lp,a_ECoG_lp,ECoG,axis=1)
+        else:
+            MEG_lp=MEG
+            ECoG_lp=ECoG
+        
+        if q==1:
+            MEG_dec=MEG_lp
+            ECoG_dec=ECoG_lp
+        else:
+            print 'Decimate+anti-aliasing'
+            MEG_dec = sig.decimate(MEG_lp, q, n=None, ftype='iir', axis=1, zero_phase=True)
+            ECoG_dec = sig.decimate(ECoG_lp, q, n=None, ftype='iir', axis=1, zero_phase=True)
+    
+        fs_ECoG = fs_ECoG0/q
+        fs_MEG = fs_MEG0/q
+        if mains:
+            print 'Notch filter ',f0,Q
+            b_ECoG, a_ECoG = sig.iirnotch(f0/(fs_ECoG/2),Q)
+            b_MEG, a_MEG = sig.iirnotch(f0/(fs_MEG/2),Q)
+
+            MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_dec,axis=1)
+            ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_dec,axis=1)
+            for m in range(2,6):
+                print 'Notch filter ',f0*m,Q*m
+                #print 'Notch filter ',m*f0/(fs_ECoG/2)
+                b_ECoG, a_ECoG = sig.iirnotch(m*f0/(fs_ECoG/2),Q*m)
+                b_MEG, a_MEG = sig.iirnotch(m*f0/(fs_MEG/2),Q*m)
+
+                MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_filt,axis=1)
+                ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_filt,axis=1)
+        else:
+            MEG_filt=MEG_dec
+            ECoG_filt=ECoG_dec      
+        
+        
+        print 'Epoch epoch filtered trials'
         n_epochs=start.shape[0]
+
+        time_ECoG = np.arange(0,ECoG_filt.shape[1])/fs_ECoG
+        time_MEG = np.arange(0,MEG_filt.shape[1])/fs_MEG
 
         ECoG_epochs_index = []
         MEG_epochs_index = []
-
-        ECoG_epoched = []
-        MEG_epoched = []
 
         ECoG_filt_epoched = []
         MEG_filt_epoched = []
@@ -206,54 +247,16 @@ for name in names:
             picks = np.where(time_ECoG>=start[i])
             picks = np.intersect1d(picks,np.where(time_ECoG<stop[i]))
 
-            ECoG_epoched = ECoG[:,picks]
+            ECoG_filt_picks = ECoG_filt[:,picks]
 
             picks = np.where(time_MEG>=start[i])
             picks = np.intersect1d(picks,np.where(time_MEG<stop[i]))
 
-            MEG_epoched = MEG[:,picks]
-
-            if lowpass:
-                if i==0: print 'Low-pass filter'
-                b_ECoG_lp, a_ECoG_lp =sig.butter(8,fc/(fs_ECoG0/2))
-                b_MEG_lp, a_MEG_lp =sig.butter(8,fc/(fs_MEG0/2))
-                MEG_lp = sig.filtfilt(b_MEG_lp,a_MEG_lp,MEG_epoched,axis=1)
-                ECoG_lp = sig.filtfilt(b_ECoG_lp,a_ECoG_lp,ECoG_epoched,axis=1)
-            else:
-                MEG_lp=MEG_epoched
-                ECoG_lp=ECoG_epoched
-            if q==1:
-                MEG_dec=MEG_lp
-                ECoG_dec=ECoG_lp
-            else:
-                if i==0: print 'Decimate+anti-aliasing'
-                MEG_dec = sig.decimate(MEG_lp, q, n=None, ftype='iir', axis=1, zero_phase=True)
-                ECoG_dec = sig.decimate(ECoG_lp, q, n=None, ftype='iir', axis=1, zero_phase=True)
-
-            fs_ECoG = fs_ECoG0/q
-            fs_MEG = fs_MEG0/q
-            if mains:
-                if i==0: print 'Notch filter ',f0
-                b_ECoG, a_ECoG = sig.iirnotch(f0/(fs_ECoG/2),Q)
-                b_MEG, a_MEG = sig.iirnotch(f0/(fs_MEG/2),Q)
-
-                MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_dec,axis=1)
-                ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_dec,axis=1)
-                for m in range(2,6):
-                    if i==0: print 'Notch filter ',f0*m
-                    #print 'Notch filter ',m*f0/(fs_ECoG/2)
-                    b_ECoG, a_ECoG = sig.iirnotch(m*f0/(fs_ECoG/2),Q*m)
-                    b_MEG, a_MEG = sig.iirnotch(m*f0/(fs_MEG/2),Q*m)
-
-                    MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_filt,axis=1)
-                    ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_filt,axis=1)
-            else:
-                MEG_filt=MEG_dec
-                ECoG_filt=ECoG_dec
+            MEG_filt_picks = MEG_filt[:,picks]
 
 
-            MEG_filt_epoched.append(MEG_filt)
-            ECoG_filt_epoched.append(ECoG_filt)
+            MEG_filt_epoched.append(MEG_filt_picks)
+            ECoG_filt_epoched.append(ECoG_filt_picks)
 
         print 'Trim trials to same length.'
         ECoG_trim = []
