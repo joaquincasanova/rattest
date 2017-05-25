@@ -54,23 +54,23 @@ def plotcorr(ECoG_corr_std,ECoG_corr_mean,MEG_corr_std,MEG_corr_mean,fs_MEG,fs_E
     plt.subplot(2,2,1)
     plt.plot(time_ECoG.T,ECoG_corr_mean.T)
     plt.title('ECoG Corr Mean Label '+str(label))
-    plt.ylim(-15e-7,15e-7)
+    plt.autoscale(enable=True, axis='y', tight=True)
 
     plt.subplot(2,2,3)
     plt.plot(time_MEG.T,MEG_corr_mean.T)
     plt.title('MEG Corr Mean Label '+str(label))
-    plt.ylim(-5e-4,5e-4)
+    plt.ylim(-1e-3,1e-3)#autoscale(enable=True, axis='y', tight=True)    
     plt.xlabel('Time (s)')
 
     plt.subplot(2,2,2)
     plt.plot(time_ECoG.T,ECoG_corr_std.T)
-    plt.title('ECoG Corr Std Label '+str(label))
-    plt.ylim(0e-6,45e-6)
+    plt.title('ECoG Corr Std Label '+str(label))    
+    plt.autoscale(enable=True, axis='y', tight=True)
 
     plt.subplot(2,2,4)
     plt.plot(time_MEG.T,MEG_corr_std.T)
     plt.title('MEG Corr Std Label '+str(label))
-    plt.ylim(0,25e-4)
+    plt.autoscale(enable=True, axis='y', tight=True)
     plt.xlabel('Time (s)')
     plt.savefig(name+'label'+str(label)+'.png')
     plt.close()
@@ -114,12 +114,13 @@ def plot_fft(MEG,ECoG,fs_MEG,fs_ECoG,label,name):
     plt.plot(time_ECoG.T,ECoG.T)
     plt.title('ECoG Label '+str(label))
     if axlim: plt.ylim(-150e-6,150e-6)
-    if not axlim: plt.ylim(0e-6,150e-6)
+    if not axlim: plt.autoscale(enable=True, axis='y', tight=True)
+    
     plt.subplot(2,2,3)
     plt.plot(time_MEG.T,MEG.T)
     plt.title('MEG Label '+str(label))
     if axlim: plt.ylim(-2e-9,2e-9)
-    if not axlim: plt.ylim(0e-6,2e-9)
+    if not axlim: plt.autoscale(enable=True, axis='y', tight=True)
     plt.xlabel('Time (s)')
 
     plt.subplot(2,2,2)
@@ -127,12 +128,14 @@ def plot_fft(MEG,ECoG,fs_MEG,fs_ECoG,label,name):
     plt.title('ECoG Label '+str(label))
     plt.xlim(0,300)
     if axlim: plt.ylim(-120.,-40.)
-
+    if not axlim: plt.autoscale(enable=True, axis='y', tight=True)
+    
     plt.subplot(2,2,4)
     plt.plot(f_MEG.T,MEG_PSD.T)
     plt.title('MEG Label '+str(label))
     plt.xlim(0,300)
     if axlim: plt.ylim(-220.,-140.)
+    if not axlim: plt.autoscale(enable=True, axis='y', tight=True)
 
 
     plt.xlabel('Frequency (Hz)')
@@ -461,13 +464,13 @@ for p in range(0,len(names)):
             ECoG_corr_std, ECoG_corr_mean = trials_corr(ECoG_3[picks,:,:])
             MEG_corr_std, MEG_corr_mean = trials_corr(MEG_3[picks,:,:])
             if plotit:
-                plot_fft(MEG_average[ll],ECoG_average[ll],fs_MEG,fs_ECoG,ll,name+'mean')
-                plot_fft(MEG_std[ll],ECoG_std[ll],fs_MEG,fs_ECoG,ll,name+'std')
+                #plot_fft(MEG_average[ll],ECoG_average[ll],fs_MEG,fs_ECoG,ll,name+'mean')
+                #plot_fft(MEG_std[ll],ECoG_std[ll],fs_MEG,fs_ECoG,ll,name+'std')
                 plotcorr(ECoG_corr_std,ECoG_corr_mean,MEG_corr_std,MEG_corr_mean,fs_MEG,fs_ECoG,ll, name+'corr')
-                for sensor in range(0,MEG_average[ll].shape[0]):
-                    spec(MEG_average[ll][sensor,:],fs_MEG,name+'MEG',sensor,ll)
-                for sensor in range(0,ECoG_average[ll].shape[0]):
-                    spec(ECoG_average[ll][sensor,:],fs_ECoG,name+'ECoG',sensor,ll)    
+                #for sensor in range(0,MEG_average[ll].shape[0]):
+                #    spec(MEG_average[ll][sensor,:],fs_MEG,name+'MEG',sensor,ll)
+                #for sensor in range(0,ECoG_average[ll].shape[0]):
+                #    spec(ECoG_average[ll][sensor,:],fs_ECoG,name+'ECoG',sensor,ll)    
         ll+=1
         meg_xyz = meg_rat_loc()
         if flag=='P0':
