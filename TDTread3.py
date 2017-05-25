@@ -65,12 +65,12 @@ def plotcorr(ECoG_corr_std,ECoG_corr_mean,MEG_corr_std,MEG_corr_mean,fs_MEG,fs_E
     plt.subplot(2,2,2)
     plt.plot(time_ECoG.T,ECoG_corr_std.T)
     plt.title('ECoG Corr Std Label '+str(label))
-    plt.ylim(15e-6,45e-6)
+    plt.ylim(0e-6,45e-6)
 
     plt.subplot(2,2,4)
     plt.plot(time_MEG.T,MEG_corr_std.T)
     plt.title('MEG Corr Std Label '+str(label))
-    plt.ylim(2e-4,18e-4)
+    plt.ylim(0,25e-4)
     plt.xlabel('Time (s)')
     plt.savefig(name+'label'+str(label)+'.png')
     plt.close()
@@ -114,11 +114,12 @@ def plot_fft(MEG,ECoG,fs_MEG,fs_ECoG,label,name):
     plt.plot(time_ECoG.T,ECoG.T)
     plt.title('ECoG Label '+str(label))
     if axlim: plt.ylim(-150e-6,150e-6)
-
+    if not axlim: plt.ylim(0e-6,150e-6)
     plt.subplot(2,2,3)
     plt.plot(time_MEG.T,MEG.T)
     plt.title('MEG Label '+str(label))
     if axlim: plt.ylim(-2e-9,2e-9)
+    if not axlim: plt.ylim(0e-6,2e-9)
     plt.xlabel('Time (s)')
 
     plt.subplot(2,2,2)
