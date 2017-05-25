@@ -14,14 +14,67 @@ import matplotlib.pyplot as plt
 
 pi = np.pi
 f0 = 60.#mains
-fc = 300.#cutoff
+fcu = 300.#cutoff
+fcl = .2#cutoff
 Q = 30.#notch Q at 60, bw=2hz
 q=48#decimation
 K = 466./257.*1e6
 plotit=True
 lowpass=True#lowpass is redundant with decimate's built in butterworth low-pass
+highpass=True
 mains = True
+def spec(x,fs,name,sensor,label):
+    f, t, Sxx = sig.spectrogram(x, fs, nperseg = max(64,int(x.shape[0]/8)))
+    F,T = np.meshgrid(f,t)
+    plt.pcolormesh(T,F,Sxx.T)
+    plt.ylabel('Frequency [Hz]')
+    plt.xlabel('Time [sec]')
+    plt.savefig(name+'spec'+'label'+str(label)+'sensor'+str(sensor)+'.png')
 
+def trials_corr(data):
+    trials = data.shape[0]
+    sensors = data.shape[1]
+    steps = data.shape[2]
+    corr_ = np.zeros([trials*(trials-1)/2,sensors,steps])
+    print "Trials ",trials,"Sensors ",sensors,"Steps ",steps,"Comparisons ",trials*(trials-1)/2
+    for k in range(0,sensors):
+        nn=0
+        for i in range(0,trials):
+            for j in range(i+1,trials):
+                corr_[nn,k,:]=sig.correlate(data[i,k,:],data[j,k,:],mode='same')
+                nn+=1
+    corr_mean = np.mean(corr_,axis=0)
+    corr_std = np.std(corr_,axis=0)
+    return corr_std, corr_mean
+
+def plotcorr(ECoG_corr_std,ECoG_corr_mean,MEG_corr_std,MEG_corr_mean,fs_MEG,fs_ECoG,label, name):
+    time_ECoG = np.arange(0,ECoG_corr_mean.shape[1])/fs_ECoG
+
+    time_MEG = np.arange(0,MEG_corr_mean.shape[1])/fs_MEG
+    plt.subplot(2,2,1)
+    plt.plot(time_ECoG.T,ECoG_corr_mean.T)
+    plt.title('ECoG Corr Mean Label '+str(label))
+    plt.ylim(-15e-7,15e-7)
+
+    plt.subplot(2,2,3)
+    plt.plot(time_MEG.T,MEG_corr_mean.T)
+    plt.title('MEG Corr Mean Label '+str(label))
+    plt.ylim(-5e-4,5e-4)
+    plt.xlabel('Time (s)')
+
+    plt.subplot(2,2,2)
+    plt.plot(time_ECoG.T,ECoG_corr_std.T)
+    plt.title('ECoG Corr Std Label '+str(label))
+    plt.ylim(15e-6,45e-6)
+
+    plt.subplot(2,2,4)
+    plt.plot(time_MEG.T,MEG_corr_std.T)
+    plt.title('MEG Corr Std Label '+str(label))
+    plt.ylim(2e-4,18e-4)
+    plt.xlabel('Time (s)')
+    plt.savefig(name+'label'+str(label)+'.png')
+    plt.close()
+    
 def plot3d(data,xyz,batch,step):
 
     fig = plt.figure()
@@ -38,6 +91,7 @@ def plot3d(data,xyz,batch,step):
 def plot_fft(MEG,ECoG,fs_MEG,fs_ECoG,label,name):
     print 'MEG: ',MEG.shape
     print 'ECoG: ',ECoG.shape
+    axlim=('std' not in name)
     time_ECoG = np.arange(0,ECoG.shape[1])/fs_ECoG
 
     time_MEG = np.arange(0,MEG.shape[1])/fs_MEG
@@ -45,32 +99,40 @@ def plot_fft(MEG,ECoG,fs_MEG,fs_ECoG,label,name):
     f_ECoG=(sfft.fftshift(sfft.fftfreq(ECoG.shape[1],1./fs_ECoG)))
         
     f_MEG=(sfft.fftshift(sfft.fftfreq(MEG.shape[1],1./fs_MEG)))
-        
-    ECoG_fft = sfft.fftshift(sfft.fft(ECoG))
+
+    h_ECoG = np.matlib.repmat(sig.hann(ECoG.shape[1]),ECoG.shape[0],1)
+
+    h_MEG = np.matlib.repmat(sig.hann(MEG.shape[1]),MEG.shape[0],1)
+    
+    ECoG_fft = sfft.fftshift(sfft.fft(ECoG*h_ECoG))
     ECoG_PSD = 10.*np.log10(np.abs(ECoG_fft*np.conj(ECoG_fft)))
 
-    MEG_fft = sfft.fftshift(sfft.fft(MEG))
+    MEG_fft = sfft.fftshift(sfft.fft(MEG*h_MEG))
     MEG_PSD = 10.*np.log10(np.abs(MEG_fft*np.conj(MEG_fft)))
 
     plt.subplot(2,2,1)
     plt.plot(time_ECoG.T,ECoG.T)
     plt.title('ECoG Label '+str(label))
+    if axlim: plt.ylim(-150e-6,150e-6)
 
     plt.subplot(2,2,3)
     plt.plot(time_MEG.T,MEG.T)
     plt.title('MEG Label '+str(label))
-
+    if axlim: plt.ylim(-2e-9,2e-9)
     plt.xlabel('Time (s)')
 
     plt.subplot(2,2,2)
     plt.plot(f_ECoG.T,ECoG_PSD.T)
     plt.title('ECoG Label '+str(label))
     plt.xlim(0,300)
+    if axlim: plt.ylim(-120.,-40.)
 
     plt.subplot(2,2,4)
     plt.plot(f_MEG.T,MEG_PSD.T)
     plt.title('MEG Label '+str(label))
     plt.xlim(0,300)
+    if axlim: plt.ylim(-220.,-140.)
+
 
     plt.xlabel('Frequency (Hz)')
     plt.savefig(name+'label'+str(label)+'.png')
@@ -102,9 +164,9 @@ def meg_rat_loc():
     x = r*np.cos(theta)
     y = [0.,0.,0.,0.]
     z = r*np.sin(theta)
-    print 'x ',x
-    print 'y ',y
-    print 'z ',z
+#    print 'x ',x
+#    print 'y ',y
+#    print 'z ',z
     return np.hstack((x,y,z)).reshape(3,4).T
 
 
@@ -128,9 +190,9 @@ def ecog_rat_loc():
     phi = np.arcsin(yp/r)
     theta = np.arccos(xp/(r*np.cos(phi)))
     y,x,z=sph2cart(theta,phi,r)
-    print 'x ',x
-    print 'y ',y
-    print 'z ',z
+#    print 'x ',x
+#    print 'y ',y
+#    print 'z ',z
     return np.hstack((x,y,z)).reshape(3,16).T
 
 #    return np.hstack((x.T,y.T,z.T))
@@ -157,12 +219,14 @@ def read_sequence(fname_seq,fname_par,flag,levels_in):
         n_treat=len(level)
     return treatments, n_treat
                     
-directory='./oceanit/05182017/'
-names=['ECOG_MEG_P1','ECOG_Live_1_Bad_ground','ECOG_Live_2','ECOG_MEG_Tones','ECOG_MEG_Iso_Tones']#
+directories=['./oceanit/05162017/','./oceanit/05182017/',   './oceanit/05182017/', './oceanit/05182017/','./oceanit/05182017/','./oceanit/05182017/']
+names      =[           'MEG_ECOG',        'ECOG_MEG_P1','ECOG_Live_1_Bad_ground',         'ECOG_Live_2',     'ECOG_MEG_Tones', 'ECOG_MEG_Iso_Tones']#
 PinkFile='Oceanit1'
 ToneFile='Oceanit2'
 
-for name in names:
+for p in range(0,len(names)):
+    name=names[p]
+    directory=directories[p]
     
     if not os.path.isfile(name+'.pickle'): 
         if 'P1' in name:
@@ -180,6 +244,8 @@ for name in names:
             csvname_par = directory+PinkFile+'.par.csv'
             period = 1.0#s
             flag = 'P1'
+        if directory is './oceanit/05162017/':
+            flag = 'P0'
 
         print 'Load trials ',name
         try:
@@ -233,40 +299,53 @@ for name in names:
         #Read sequence data    
         treatments,n_treat = read_sequence(csvname_seq,csvname_par,flag,level)
         print 'Filter entire waveforms'
-        MEG_dec = np.zeros([MEG.shape[0],int(MEG.shape[1]/q)+1])
-        ECoG_dec = np.zeros([ECoG.shape[0],int(ECoG.shape[1]/q)+1])
-        if q==1:
+        if q==1 or fs_MEG0<1500.:
             MEG_dec=MEG
-            ECoG_dec=ECoG
+            fs_MEG = fs_MEG0
         else:
+            MEG_dec = np.zeros([MEG.shape[0],int(MEG.shape[1]/q)+1])        
             print 'Decimate+anti-aliasing'
             for i in range(0,MEG.shape[0]):
                 MEG_dec[i,:] = sig.decimate(MEG[i,:], q, n=None, ftype='iir', zero_phase=True)
+            fs_MEG = fs_MEG0/q
+
+        if q==1 or fs_ECoG0<1500.:
+            ECoG_dec=ECoG
+            fs_ECoG = fs_ECoG0
+        else:
+            ECoG_dec = np.zeros([ECoG.shape[0],int(ECoG.shape[1]/q)+1])
+            print 'Decimate+anti-aliasing'
             for i in range(0,ECoG.shape[0]):
-                ECoG_dec[i,:] = sig.decimate(ECoG[i,:], q, n=None, ftype='iir', zero_phase=True)
-    
-        fs_ECoG = fs_ECoG0/q
-        fs_MEG = fs_MEG0/q
-#        time_ECoG = time_ECoG[0,0:-1:q]
-#        time_MEG = time_MEG[0,0:-1:q]
+                ECoG_dec[i,:] = sig.decimate(ECoG[i,:], q, n=None, ftype='iir', zero_phase=True) 
+            fs_ECoG = fs_ECoG0/q
         
         if lowpass:
-            print 'Low-pass filter'
-            b_ECoG_lp, a_ECoG_lp =sig.butter(8,fc/(fs_ECoG/2))
-            b_MEG_lp, a_MEG_lp =sig.butter(8,fc/(fs_MEG/2))
+            print 'Low-pass filter ', fcu
+            b_ECoG_lp, a_ECoG_lp =sig.butter(8,fcu/(fs_ECoG/2),btype='lowpass')
+            b_MEG_lp, a_MEG_lp =sig.butter(8,fcu/(fs_MEG/2),btype='lowpass')
             MEG_lp = sig.filtfilt(b_MEG_lp,a_MEG_lp,MEG_dec,axis=1)
             ECoG_lp = sig.filtfilt(b_ECoG_lp,a_ECoG_lp,ECoG_dec,axis=1)
         else:
             MEG_lp=MEG_dec
             ECoG_lp=ECoG_dec
+        
+        if highpass:
+            print 'High-pass filter ',fcl
+            b_ECoG_hp, a_ECoG_hp =sig.butter(2,fcl/(fs_ECoG/2),btype='highpass')
+            b_MEG_hp, a_MEG_hp =sig.butter(2,fcl/(fs_MEG/2),btype='highpass')
+            MEG_hp = sig.filtfilt(b_MEG_hp,a_MEG_hp,MEG_lp,axis=1)
+            ECoG_hp = sig.filtfilt(b_ECoG_hp,a_ECoG_hp,ECoG_lp,axis=1)
+        else:
+            MEG_hp=MEG_lp
+            ECoG_hp=ECoG_lp            
 
         if mains:
             print 'Notch filter ',f0,Q
             b_ECoG, a_ECoG = sig.iirnotch(f0/(fs_ECoG/2),Q)
             b_MEG, a_MEG = sig.iirnotch(f0/(fs_MEG/2),Q)
 
-            MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_lp,axis=1)
-            ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_lp,axis=1)
+            MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_hp,axis=1)
+            ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_hp,axis=1)
             for m in range(2,6):
                 print 'Notch filter ',f0*m,Q*m
                 #print 'Notch filter ',m*f0/(fs_ECoG/2)
@@ -276,8 +355,8 @@ for name in names:
                 MEG_filt = sig.filtfilt(b_MEG,a_MEG,MEG_filt,axis=1)
                 ECoG_filt = sig.filtfilt(b_ECoG,a_ECoG,ECoG_filt,axis=1)
         else:
-            MEG_filt=MEG_lp
-            ECoG_filt=ECoG_lp      
+            MEG_filt=MEG_hp
+            ECoG_filt=ECoG_hp      
         
  
         time_ECoG = np.arange(0,ECoG_filt.shape[1])/fs_ECoG
@@ -351,7 +430,10 @@ for name in names:
             
     MEG_average = []
     ECoG_average = []
-    if flag=='Tones':
+
+    MEG_std = []
+    ECoG_std = []
+    if flag=='Tones' or flag=='P0':
         indices = range(1,n_treat+1)
     elif flag=='P1':
         indices = [-120.,-20.,-15.,-10.,-5.,0.,5.]
@@ -369,12 +451,27 @@ for name in names:
             MEG_average.append(tmp)
             tmp = np.mean(ECoG_3[picks,:,:],axis=0)
             ECoG_average.append(tmp)
+            
+            tmp = np.std(MEG_3[picks,:,:],axis=0)/K
+            MEG_std.append(tmp)
+            tmp = np.std(ECoG_3[picks,:,:],axis=0)
+            ECoG_std.append(tmp)
+            
+            ECoG_corr_std, ECoG_corr_mean = trials_corr(ECoG_3[picks,:,:])
+            MEG_corr_std, MEG_corr_mean = trials_corr(MEG_3[picks,:,:])
             if plotit:
-                plot_fft(MEG_average[ll],ECoG_average[ll],fs_MEG,fs_ECoG,ll,name)
-
+                plot_fft(MEG_average[ll],ECoG_average[ll],fs_MEG,fs_ECoG,ll,name+'mean')
+                plot_fft(MEG_std[ll],ECoG_std[ll],fs_MEG,fs_ECoG,ll,name+'std')
+                plotcorr(ECoG_corr_std,ECoG_corr_mean,MEG_corr_std,MEG_corr_mean,fs_MEG,fs_ECoG,ll, name+'corr')
+                for sensor in range(0,MEG_average[ll].shape[0]):
+                    spec(MEG_average[ll][sensor,:],fs_MEG,name+'MEG',sensor,ll)
+                for sensor in range(0,ECoG_average[ll].shape[0]):
+                    spec(ECoG_average[ll][sensor,:],fs_ECoG,name+'ECoG',sensor,ll)    
         ll+=1
         meg_xyz = meg_rat_loc()
+        if flag=='P0':
+            meg_xyz = np.flipud(meg_xyz)
         ecog_xyz = ecog_rat_loc()
-        plot3d(ECoG_average,ecog_xyz,ll-1,300)
+#        plot3d(ECoG_average,ecog_xyz,ll-1,300)
         with open(name+'.grouped.pickle', 'w') as f:
             pickle.dump({"ECoG_average":ECoG_average, "MEG_average":MEG_average, "fs_MEG":fs_MEG, "fs_ECoG":fs_ECoG, "flag":flag, "n_treat":n_treat, "treatments":treatments, "meg_xyz":meg_xyz, "ecog_xyz":ecog_xyz}, f)#MEG in Tesla
