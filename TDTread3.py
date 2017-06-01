@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 pi = np.pi
 f0 = 60.#mains
-fcu = 300.#cutoff
+fcu = 10.#cutoff
 fcl = .2#cutoff
 Q = 30.#notch Q at 60, bw=2hz
 q=48#decimation
@@ -461,12 +461,12 @@ for p in range(0,len(names)):
             tmp = np.std(ECoG_3[picks,:,:],axis=0)
             ECoG_std.append(tmp)
             
-            ECoG_corr_std, ECoG_corr_mean = trials_corr(ECoG_3[picks,:,:])
-            MEG_corr_std, MEG_corr_mean = trials_corr(MEG_3[picks,:,:])
+            #ECoG_corr_std, ECoG_corr_mean = trials_corr(ECoG_3[picks,:,:])
+            #MEG_corr_std, MEG_corr_mean = trials_corr(MEG_3[picks,:,:])
             if plotit:
-                #plot_fft(MEG_average[ll],ECoG_average[ll],fs_MEG,fs_ECoG,ll,name+'mean')
+                plot_fft(MEG_average[ll],ECoG_average[ll],fs_MEG,fs_ECoG,ll,name+'mean')
                 #plot_fft(MEG_std[ll],ECoG_std[ll],fs_MEG,fs_ECoG,ll,name+'std')
-                plotcorr(ECoG_corr_std,ECoG_corr_mean,MEG_corr_std,MEG_corr_mean,fs_MEG,fs_ECoG,ll, name+'corr')
+                #plotcorr(ECoG_corr_std,ECoG_corr_mean,MEG_corr_std,MEG_corr_mean,fs_MEG,fs_ECoG,ll, name+'corr')
                 #for sensor in range(0,MEG_average[ll].shape[0]):
                 #    spec(MEG_average[ll][sensor,:],fs_MEG,name+'MEG',sensor,ll)
                 #for sensor in range(0,ECoG_average[ll].shape[0]):
